@@ -1,6 +1,8 @@
-# 🌲 Claude-Worktree
+# 🌴 Claude-Worktree
 
-Stop polluting your main branch with experimental Claude conversations. This CLI creates isolated git worktrees for each Claude session, so you can iterate fearlessly without the cleanup anxiety.
+Run multiple Claude Code instances in parallel without stepping on each other. This CLI creates isolated git worktrees for each Claude session, so you can work on different features simultaneously while keeping your main branch clean.
+
+*Inspired by a script from [aaazzam](https://github.com/aaazzam).*
 
 ## 🚀 Quick Start
 
