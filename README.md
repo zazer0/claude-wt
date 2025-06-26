@@ -1,22 +1,26 @@
-# claude-wt
+# 🌲 Claude-Worktree
 
-A command-line tool for managing Claude AI sessions in dedicated git worktrees. Automatically creates isolated branches and directories for each Claude conversation, keeping your main branch clean while allowing for easy session management.
+Stop polluting your main branch with experimental Claude conversations. This CLI creates isolated git worktrees for each Claude session, so you can iterate fearlessly without the cleanup anxiety.
 
-## Usage
+## 🚀 Quick Start
 
-Run without installing using uvx:
+Jump right in without installing anything:
 
 ```bash
 uvx claude-wt new "implement user authentication"
 ```
 
-Or install globally:
+**That's it.** You're now working in a clean branch where Claude can't mess up your pristine codebase.
+
+### Installation Options
+
+If you prefer global installation:
 
 ```bash
-uv add claude-wt
+uv tool install claude-wt
 ```
 
-Or install from source:
+Or from source:
 
 ```bash
 git clone https://github.com/anthropics/claude-wt.git
@@ -24,88 +28,96 @@ cd claude-wt
 uv install -e .
 ```
 
-## Commands
+## 🎯 Commands
 
-### Create New Session
+### ✨ Start Fresh: `new`
 
-Start a new Claude session in a dedicated worktree:
+Spin up a new isolated Claude session:
 
 ```bash
 uvx claude-wt new "implement user authentication"
 ```
 
-This creates a new branch, sets up a worktree in `/tmp/claude/worktrees/`, and launches Claude with your query.
+Behind the scenes: creates a timestamp branch, sets up a worktree in `/tmp/claude/worktrees/`, and launches Claude with your query.
 
-You can specify a custom branch suffix:
+Want a memorable branch name? Use `--branch`:
 
 ```bash
-uvx claude-wt new "fix bug in parser" --branch parser-fix
+uvx claude-wt new "fix the parser" --branch parser-fix
 ```
 
-### Resume Session
+### 🔄 Pick Up Where You Left Off: `resume`
 
-Continue an existing Claude session:
+Claude sessions are like good TV shows—you want to continue watching:
 
 ```bash
 uvx claude-wt resume 20241201-143022
 ```
 
-Use the branch suffix shown when you created the session.
+The session ID is shown when you create it.
 
-### List Sessions
+### 📋 See What's Running: `list`
 
-View all active Claude worktree sessions:
+See all your active worktrees:
 
 ```bash
 uvx claude-wt list
 ```
 
-### Clean Up
+Shows each session with its health status.
 
-Remove a specific session:
+### 🧹 Clean Up: `clean`
+
+Remove a specific session when you're done:
 
 ```bash
 uvx claude-wt clean 20241201-143022
 ```
 
-Remove all Claude worktree sessions:
+Or clean everything:
 
 ```bash
-uvx claude-wt clean --all
+uvx claude-wt clean --all  # The Marie Kondo approach
 ```
 
-## How It Works
+## 🔧 How It Works
 
-1. **Branch Creation**: Each session gets a unique branch named `claude-wt-{timestamp}` or `claude-wt-{custom-suffix}`
-2. **Worktree Setup**: A git worktree is created in `/tmp/claude/worktrees/{repo-name}/{branch-name}`
-3. **Claude Launch**: Claude is launched in the worktree directory with access to your main repository
-4. **Session Management**: Resume, list, and clean up sessions as needed
+Think of it like having multiple parallel universes for your code:
 
-## Benefits
+1. **Branch Creation** → Each session gets its own branch (`claude-wt-{timestamp}` or your custom name)
+2. **Worktree Setup** → Creates a separate directory in `/tmp/claude/worktrees/` so files don't conflict
+3. **Claude Launch** → Starts Claude in the isolated environment with full repo access
+4. **Session Management** → Resume, list, and clean up sessions effortlessly
 
-- **Isolation**: Each Claude session works in its own branch and directory
-- **Clean History**: Keep experimental changes separate from your main branch
-- **Easy Switching**: Resume any previous session instantly
-- **Automatic Cleanup**: Remove branches and worktrees when done
-- **Repository Safety**: Your main branch stays untouched during Claude sessions
+## 🎁 Why You'll Love This
 
-## Requirements
+- **Fear-Free Experimentation** → Claude can't break your main branch even if it tries
+- **Mental Clarity** → No more "did I commit that test code?" anxiety
+- **Context Switching** → Jump between different Claude conversations effortlessly
+- **Easy Cleanup** → One command to remove all experimental branches
+- **Clean History** → Your main branch stays pristine for serious work
 
-- Python 3.12+
-- Git with worktree support
-- Claude CLI installed and configured
+## 📋 What You Need
 
-## Development
+- **Python 3.12+**
+- **Git with worktree support** (any recent version)
+- **Claude CLI** (installed and authenticated)
 
-This project uses uv for dependency management:
+## 🛠️ Development
+
+Uses uv for dependency management:
 
 ```bash
 uv sync
 uv run claude-wt --help
 ```
 
-Or run directly with uvx during development:
+Or test changes without installing:
 
 ```bash
 uvx --from . claude-wt --help
 ```
+
+---
+
+*Built with the assumption that your Claude sessions shouldn't be a game of git-roulette with your main branch.*
