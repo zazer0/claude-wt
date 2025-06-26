@@ -14,7 +14,7 @@ classifiers = [
 ]
 
 [project.scripts]
-claude-wt = "main:app"
+claude-wt = "claude_wt.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/jlowin/claude-wt"
