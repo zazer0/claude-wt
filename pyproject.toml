@@ -27,3 +27,6 @@ claude-wt = "main:app"
 [project.urls]
 Homepage = "https://github.com/anthropics/claude-wt"
 Issues = "https://github.com/anthropics/claude-wt/issues"
+
+[tool.uv]
+package = true
