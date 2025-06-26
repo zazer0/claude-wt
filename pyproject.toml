@@ -1,12 +1,12 @@
 [project]
 name = "claude-wt"
 dynamic = ["version"]
-description = "Claude worktree management CLI - automate launching Claude in dedicated git worktrees"
+description = "Utility for running Claude Code in parallel and managing dedicated git worktrees."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["typer>=0.16.0", "rich>=13.0.0"]
 keywords = ["claude", "git", "ai"]
-authors = [{ name = "Claude", email = "noreply@anthropic.com" }]
+authors = [{ name = "Jeremiah Lowin" }]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -18,14 +18,16 @@ claude-wt = "main:app"
 
 [project.urls]
 Homepage = "https://github.com/jlowin/claude-wt"
-Issues = "https://github.com/jlowin/claude-wt/issues"
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling", "uv-dynamic-versioning>=0.7.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-source = "vcs"
+source = "uv-dynamic-versioning"
 
-[tool.uv]
-package = true
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+bump = true
+fallback-version = "0.0.0"
