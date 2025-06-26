@@ -55,7 +55,7 @@ def new(
         
         # Setup worktree path
         repo_name = repo_root.name
-        wt_path = Path(f"/tmp/claude/worktrees/{repo_name}/{branch_name}")
+        wt_path = Path.home() / ".claude-wt" / "worktrees" / repo_name / branch_name
         wt_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Create worktree if needed
@@ -100,14 +100,34 @@ def resume(branch_name: Annotated[str, typer.Argument(help="Branch name to resum
             check=True
         )
         repo_root = Path(result.stdout.strip())
-        repo_name = repo_root.name
         
-        # Find worktree path
+        # Find worktree path using git
         full_branch_name = f"claude-wt-{branch_name}"
-        wt_path = Path(f"/tmp/claude/worktrees/{repo_name}/{full_branch_name}")
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "worktree", "list", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
         
-        if not wt_path.exists():
-            typer.echo(f"Error: Worktree for branch '{branch_name}' not found at {wt_path}", err=True)
+        # Parse worktree list to find the matching branch
+        wt_path = None
+        current_wt = {}
+        for line in result.stdout.split('\n'):
+            if line.startswith('worktree '):
+                if current_wt and current_wt.get('branch') == full_branch_name:
+                    wt_path = Path(current_wt['path'])
+                    break
+                current_wt = {'path': line[9:]}
+            elif line.startswith('branch '):
+                current_wt['branch'] = line[7:]
+        
+        # Check the last worktree entry
+        if current_wt and current_wt.get('branch') == full_branch_name:
+            wt_path = Path(current_wt['path'])
+        
+        if not wt_path or not wt_path.exists():
+            typer.echo(f"Error: Worktree for branch '{branch_name}' not found", err=True)
             raise typer.Exit(1)
         
         console.print(f"[yellow]🔄 Resuming session for branch:[/yellow] [bold]{branch_name}[/bold]")
@@ -150,7 +170,7 @@ def clean(
         )
         repo_root = Path(result.stdout.strip())
         repo_name = repo_root.name
-        wt_root = Path(f"/tmp/claude/worktrees/{repo_name}")
+        wt_root = Path.home() / ".claude-wt" / "worktrees" / repo_name
         
         if branch_name:
             # Clean specific branch
@@ -177,22 +197,46 @@ def clean(
         else:
             # Clean all claude-wt branches/worktrees
             with console.status("[bold cyan]Cleaning all claude-wt sessions..."):
-                # Remove worktrees
-                if wt_root.exists():
-                    console.print(f"[cyan]Removing worktrees in {wt_root} ...[/cyan]")
-                    for wt_dir in wt_root.glob("claude-wt-*"):
-                        if wt_dir.is_dir():
+                # Get all worktrees from git and remove claude-wt ones
+                console.print(f"[cyan]Removing claude-wt worktrees...[/cyan]")
+                try:
+                    result = subprocess.run(
+                        ["git", "-C", str(repo_root), "worktree", "list", "--porcelain"],
+                        capture_output=True,
+                        text=True,
+                        check=True
+                    )
+                    
+                    # Parse worktree list to find claude-wt worktrees
+                    worktrees = []
+                    current_wt = {}
+                    for line in result.stdout.split('\n'):
+                        if line.startswith('worktree '):
+                            if current_wt:
+                                worktrees.append(current_wt)
+                            current_wt = {'path': line[9:]}
+                        elif line.startswith('branch '):
+                            current_wt['branch'] = line[7:]
+                    if current_wt:
+                        worktrees.append(current_wt)
+                    
+                    # Remove claude-wt worktrees
+                    for wt in worktrees:
+                        branch_name = wt.get('branch', '')
+                        if branch_name.startswith('claude-wt-'):
                             try:
                                 subprocess.run(
-                                    ["git", "-C", str(repo_root), "worktree", "remove", "--force", str(wt_dir)],
+                                    ["git", "-C", str(repo_root), "worktree", "remove", "--force", wt['path']],
                                     check=True
                                 )
-                                console.print(f"  [green]✅ Removed {wt_dir.name}[/green]")
+                                console.print(f"  [green]✅ Removed {branch_name}[/green]")
                             except subprocess.CalledProcessError:
-                                console.print(f"  [red]❌ Failed to remove {wt_dir.name}[/red]")
+                                console.print(f"  [red]❌ Failed to remove {branch_name}[/red]")
+                except subprocess.CalledProcessError:
+                    console.print("  [yellow]No worktrees found[/yellow]")
                 
                 # Delete branches
-                console.print(f"[cyan]Deleting branches in {repo_root.name} ...[/cyan]")
+                console.print(f"[cyan]Deleting claude-wt branches...[/cyan]")
                 try:
                     result = subprocess.run(
                         ["git", "-C", str(repo_root), "branch", "--list", "claude-wt-*"],
@@ -238,16 +282,35 @@ def list_sessions():
         )
         repo_root = Path(result.stdout.strip())
         repo_name = repo_root.name
-        wt_root = Path(f"/tmp/claude/worktrees/{repo_name}")
         
-        if not wt_root.exists():
-            console.print("[yellow]No claude-wt worktrees found.[/yellow]")
-            return
+        # Get all worktrees from git
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "worktree", "list", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
         
-        # Find all claude-wt worktrees
-        worktrees = list(wt_root.glob("claude-wt-*"))
+        # Parse worktree list output
+        worktrees = []
+        current_wt = {}
+        for line in result.stdout.split('\n'):
+            if line.startswith('worktree '):
+                if current_wt:
+                    worktrees.append(current_wt)
+                current_wt = {'path': line[9:]}  # Remove 'worktree ' prefix
+            elif line.startswith('branch '):
+                current_wt['branch'] = line[7:]  # Remove 'branch ' prefix
+        if current_wt:
+            worktrees.append(current_wt)
         
-        if not worktrees:
+        # Filter for claude-wt worktrees
+        claude_worktrees = [
+            wt for wt in worktrees 
+            if wt.get('branch', '').startswith('claude-wt-')
+        ]
+        
+        if not claude_worktrees:
             console.print("[yellow]No claude-wt worktrees found.[/yellow]")
             return
         
@@ -257,21 +320,15 @@ def list_sessions():
         table.add_column("Session", style="cyan", min_width=15)
         table.add_column("Path", style="dim", overflow="fold")
         
-        for wt_path in sorted(worktrees):
-            branch_name = wt_path.name
+        for wt in sorted(claude_worktrees, key=lambda x: x.get('branch', '')):
+            branch_name = wt.get('branch', '')
             suffix = branch_name.replace("claude-wt-", "")
+            wt_path = wt['path']
             
-            # Check if branch still exists
-            try:
-                subprocess.run(
-                    ["git", "-C", str(repo_root), "show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}"],
-                    check=True
-                )
-                status = "[green]✅[/green]"
-            except subprocess.CalledProcessError:
-                status = "[red]❌[/red]"
+            # Check if worktree path still exists
+            status = "[green]✅[/green]" if Path(wt_path).exists() else "[red]❌[/red]"
             
-            table.add_row(status, suffix, str(wt_path))
+            table.add_row(status, suffix, wt_path)
         
         console.print(table)
         
