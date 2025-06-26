@@ -5,9 +5,14 @@ from datetime import datetime
 from pathlib import Path
 
 import typer
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 from typing_extensions import Annotated
 
 app = typer.Typer(help="Claude worktree management CLI", no_args_is_help=True)
+console = Console()
 
 
 @app.command()
@@ -61,11 +66,11 @@ def new(
             )
         
         # Print helpful info
-        print()
-        print(f"🟢 Resume this session: claude-wt resume {suffix}")
-        print(f"🧹 Delete this session: claude-wt clean {suffix}")
-        print("🧨 Delete all sessions: claude-wt clean")
-        print()
+        panel_content = f"""[green]🟢 Resume this session:[/green] [bold]claude-wt resume {suffix}[/bold]
+[blue]🧹 Delete this session:[/blue] [bold]claude-wt clean {suffix}[/bold]
+[red]🧨 Delete all sessions:[/red] [bold]claude-wt clean --all[/bold]"""
+        
+        console.print(Panel(panel_content, title="[bold cyan]Session Created[/bold cyan]", border_style="cyan"))
         
         # Launch Claude
         claude_path = shutil.which("claude") or "/Users/jlowin/.claude/local/claude"
@@ -105,8 +110,7 @@ def resume(branch_name: Annotated[str, typer.Argument(help="Branch name to resum
             typer.echo(f"Error: Worktree for branch '{branch_name}' not found at {wt_path}", err=True)
             raise typer.Exit(1)
         
-        print(f"🔄 Resuming session for branch: {branch_name}")
-        print()
+        console.print(f"[yellow]🔄 Resuming session for branch:[/yellow] [bold]{branch_name}[/bold]")
         
         # Launch Claude with --continue to resume conversation
         claude_path = shutil.which("claude") or "/Users/jlowin/.claude/local/claude"
@@ -122,9 +126,21 @@ def resume(branch_name: Annotated[str, typer.Argument(help="Branch name to resum
 
 
 @app.command()
-def clean(branch_name: Annotated[str, typer.Argument(help="Specific branch to clean (optional)")] = ""):
+def clean(
+    branch_name: Annotated[str, typer.Argument(help="Specific branch to clean")] = "",
+    all: Annotated[bool, typer.Option("--all", help="Clean all claude-wt sessions")] = False,
+):
     """Delete claude-wt worktrees and branches."""
     try:
+        # Require either branch_name or --all
+        if not branch_name and not all:
+            typer.echo("Error: Must specify either a branch name or --all flag", err=True)
+            raise typer.Exit(1)
+        
+        if branch_name and all:
+            typer.echo("Error: Cannot specify both branch name and --all flag", err=True)
+            raise typer.Exit(1)
+        
         # Get repo root
         result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
@@ -147,7 +163,7 @@ def clean(branch_name: Annotated[str, typer.Argument(help="Specific branch to cl
                     ["git", "-C", str(repo_root), "worktree", "remove", "--force", str(wt_path)],
                     check=True
                 )
-                print(f"✅ Removed worktree: {wt_path}")
+                console.print(f"[green]✅ Removed worktree:[/green] {wt_path}")
             
             # Delete branch
             try:
@@ -155,50 +171,51 @@ def clean(branch_name: Annotated[str, typer.Argument(help="Specific branch to cl
                     ["git", "-C", str(repo_root), "branch", "-D", full_branch_name],
                     check=True
                 )
-                print(f"✅ Deleted branch: {full_branch_name}")
+                console.print(f"[green]✅ Deleted branch:[/green] {full_branch_name}")
             except subprocess.CalledProcessError:
-                print(f"⚠️  Branch {full_branch_name} not found")
+                console.print(f"[yellow]⚠️  Branch {full_branch_name} not found[/yellow]")
         else:
             # Clean all claude-wt branches/worktrees
-            # Remove worktrees
-            if wt_root.exists():
-                print(f"Removing worktrees in {wt_root} ...")
-                for wt_dir in wt_root.glob("claude-wt-*"):
-                    if wt_dir.is_dir():
-                        try:
-                            subprocess.run(
-                                ["git", "-C", str(repo_root), "worktree", "remove", "--force", str(wt_dir)],
-                                check=True
-                            )
-                            print(f"  ✅ Removed {wt_dir}")
-                        except subprocess.CalledProcessError:
-                            print(f"  ❌ Failed to remove {wt_dir}")
-            
-            # Delete branches
-            print(f"Deleting branches in {repo_root} ...")
-            try:
-                result = subprocess.run(
-                    ["git", "-C", str(repo_root), "branch", "--list", "claude-wt-*"],
-                    capture_output=True,
-                    text=True,
-                    check=True
-                )
-                branches = [b.strip().lstrip('* ') for b in result.stdout.split('\n') if b.strip()]
+            with console.status("[bold cyan]Cleaning all claude-wt sessions..."):
+                # Remove worktrees
+                if wt_root.exists():
+                    console.print(f"[cyan]Removing worktrees in {wt_root} ...[/cyan]")
+                    for wt_dir in wt_root.glob("claude-wt-*"):
+                        if wt_dir.is_dir():
+                            try:
+                                subprocess.run(
+                                    ["git", "-C", str(repo_root), "worktree", "remove", "--force", str(wt_dir)],
+                                    check=True
+                                )
+                                console.print(f"  [green]✅ Removed {wt_dir.name}[/green]")
+                            except subprocess.CalledProcessError:
+                                console.print(f"  [red]❌ Failed to remove {wt_dir.name}[/red]")
                 
-                for branch in branches:
-                    if branch:
-                        try:
-                            subprocess.run(
-                                ["git", "-C", str(repo_root), "branch", "-D", branch],
-                                check=True
-                            )
-                            print(f"  ✅ Deleted branch {branch}")
-                        except subprocess.CalledProcessError:
-                            print(f"  ❌ Failed to delete branch {branch}")
-            except subprocess.CalledProcessError:
-                print("  No claude-wt-* branches found")
+                # Delete branches
+                console.print(f"[cyan]Deleting branches in {repo_root.name} ...[/cyan]")
+                try:
+                    result = subprocess.run(
+                        ["git", "-C", str(repo_root), "branch", "--list", "claude-wt-*"],
+                        capture_output=True,
+                        text=True,
+                        check=True
+                    )
+                    branches = [b.strip().lstrip('* ') for b in result.stdout.split('\n') if b.strip()]
+                    
+                    for branch in branches:
+                        if branch:
+                            try:
+                                subprocess.run(
+                                    ["git", "-C", str(repo_root), "branch", "-D", branch],
+                                    check=True
+                                )
+                                console.print(f"  [green]✅ Deleted branch {branch}[/green]")
+                            except subprocess.CalledProcessError:
+                                console.print(f"  [red]❌ Failed to delete branch {branch}[/red]")
+                except subprocess.CalledProcessError:
+                    console.print("  [yellow]No claude-wt-* branches found[/yellow]")
             
-            print("🧹 Cleanup complete!")
+            console.print("[green bold]🧹 Cleanup complete![/green bold]")
         
     except subprocess.CalledProcessError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -224,18 +241,21 @@ def list_sessions():
         wt_root = Path(f"/tmp/claude/worktrees/{repo_name}")
         
         if not wt_root.exists():
-            print("No claude-wt worktrees found.")
+            console.print("[yellow]No claude-wt worktrees found.[/yellow]")
             return
         
         # Find all claude-wt worktrees
         worktrees = list(wt_root.glob("claude-wt-*"))
         
         if not worktrees:
-            print("No claude-wt worktrees found.")
+            console.print("[yellow]No claude-wt worktrees found.[/yellow]")
             return
         
-        print(f"Claude-wt worktrees for {repo_name}:")
-        print()
+        # Create table
+        table = Table(title=f"Claude-wt worktrees for [bold cyan]{repo_name}[/bold cyan]")
+        table.add_column("Status", style="green", justify="center")
+        table.add_column("Session", style="cyan", min_width=15)
+        table.add_column("Path", style="dim", overflow="fold")
         
         for wt_path in sorted(worktrees):
             branch_name = wt_path.name
@@ -247,15 +267,13 @@ def list_sessions():
                     ["git", "-C", str(repo_root), "show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}"],
                     check=True
                 )
-                branch_status = "✅"
+                status = "[green]✅[/green]"
             except subprocess.CalledProcessError:
-                branch_status = "❌"
+                status = "[red]❌[/red]"
             
-            print(f"  {branch_status} {suffix}")
-            print(f"    Path: {wt_path}")
-            print(f"    Resume: claude-wt resume {suffix}")
-            print(f"    Clean:  claude-wt clean {suffix}")
-            print()
+            table.add_row(status, suffix, str(wt_path))
+        
+        console.print(table)
         
     except subprocess.CalledProcessError as e:
         typer.echo(f"Error: {e}", err=True)

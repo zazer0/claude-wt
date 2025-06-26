@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "typer>=0.16.0",
+    "rich>=13.0.0",
 ]
 keywords = ["claude", "git", "worktree", "ai", "cli"]
 authors = [
