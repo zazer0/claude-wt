@@ -4,22 +4,13 @@ version = "0.1.0"
 description = "Claude worktree management CLI - automate launching Claude in dedicated git worktrees"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "typer>=0.16.0",
-    "rich>=13.0.0",
-]
-keywords = ["claude", "git", "worktree", "ai", "cli"]
-authors = [
-    {name = "Claude", email = "noreply@anthropic.com"}
-]
+dependencies = ["typer>=0.16.0", "rich>=13.0.0"]
+keywords = ["claude", "git", "ai"]
+authors = [{ name = "Claude", email = "noreply@anthropic.com" }]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Software Development :: Tools",
-    "Topic :: Software Development :: Version Control :: Git",
 ]
 
 [project.scripts]
