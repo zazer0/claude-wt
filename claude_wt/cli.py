@@ -2,14 +2,13 @@ import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated
 
-import typer
+from cyclopts import App
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-app = typer.Typer(help="Claude worktree management CLI", no_args_is_help=True)
+app = App(help="Claude worktree management CLI")
 console = Console()
 
 
@@ -35,18 +34,23 @@ def check_gitignore(repo_root: Path) -> bool:
     return False
 
 
-@app.command()
+@app.command
 def new(
-    query: Annotated[str, typer.Argument(help="Query to send to Claude")] = "",
-    branch: Annotated[
-        str,
-        typer.Option("--branch", "-b", help="Source branch to create worktree from"),
-    ] = "",
-    name: Annotated[
-        str, typer.Option("--name", "-n", help="Name suffix for the worktree branch")
-    ] = "",
+    query: str = "",
+    branch: str = "",
+    name: str = "",
 ):
-    """Create a new worktree and launch Claude."""
+    """Create a new worktree and launch Claude.
+
+    Parameters
+    ----------
+    query : str
+        Query to send to Claude
+    branch : str
+        Source branch to create worktree from
+    name : str
+        Name suffix for the worktree branch
+    """
     # Get repo root
     result = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
@@ -58,11 +62,11 @@ def new(
 
     # Check if .claude-wt/worktrees is in .gitignore
     if not check_gitignore(repo_root):
-        panel_content = """Claude-wt creates worktrees in [cyan].claude-wt/worktrees[/cyan] to preserve Claude's repo permissions.
+        panel_content = """Claude-wt creates worktrees in your repo at [cyan].claude-wt/worktrees[/cyan].
 
 This directory must be added to .gitignore to prevent committing worktree data.
 
-[yellow]→[/yellow] Run: [bold]claude-wt init[/bold]"""
+[yellow]→[/yellow] Please run [bold]claude-wt init[/bold] to automatically add .claude-wt/worktrees to .gitignore"""
 
         console.print(
             Panel(
@@ -72,7 +76,7 @@ This directory must be added to .gitignore to prevent committing worktree data.
                 width=60,
             )
         )
-        raise typer.Exit(1)
+        raise SystemExit(1)
 
     # Get source branch (default to current branch)
     if branch:
@@ -165,9 +169,15 @@ This directory must be added to .gitignore to prevent committing worktree data.
     subprocess.run(claude_cmd, cwd=wt_path)
 
 
-@app.command()
-def resume(branch_name: Annotated[str, typer.Argument(help="Branch name to resume")]):
-    """Resume an existing worktree session."""
+@app.command
+def resume(branch_name: str):
+    """Resume an existing worktree session.
+
+    Parameters
+    ----------
+    branch_name : str
+        Branch name to resume
+    """
     try:
         # Get repo root
         result = subprocess.run(
@@ -204,10 +214,10 @@ def resume(branch_name: Annotated[str, typer.Argument(help="Branch name to resum
             wt_path = Path(current_wt["path"])
 
         if not wt_path or not wt_path.exists():
-            typer.echo(
-                f"Error: Worktree for branch '{branch_name}' not found", err=True
+            console.print(
+                f"[red]Error: Worktree for branch '{branch_name}' not found[/red]"
             )
-            raise typer.Exit(1)
+            raise SystemExit(1)
 
         console.print(
             f"[yellow]🔄 Resuming session for branch:[/yellow] [bold]{branch_name}[/bold]"
@@ -219,34 +229,40 @@ def resume(branch_name: Annotated[str, typer.Argument(help="Branch name to resum
         subprocess.run(claude_cmd, cwd=wt_path)
 
     except subprocess.CalledProcessError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+        console.print(f"[red]Error: {e}[/red]")
+        raise SystemExit(1)
     except Exception as e:
-        typer.echo(f"Unexpected error: {e}", err=True)
-        raise typer.Exit(1)
+        console.print(f"[red]Unexpected error: {e}[/red]")
+        raise SystemExit(1)
 
 
-@app.command()
+@app.command
 def clean(
-    branch_name: Annotated[str, typer.Argument(help="Specific branch to clean")] = "",
-    all: Annotated[
-        bool, typer.Option("--all", help="Clean all claude-wt sessions")
-    ] = False,
+    branch_name: str = "",
+    all: bool = False,
 ):
-    """Delete claude-wt worktrees and branches."""
+    """Delete claude-wt worktrees and branches.
+
+    Parameters
+    ----------
+    branch_name : str
+        Specific branch to clean
+    all : bool
+        Clean all claude-wt sessions
+    """
     try:
         # Require either branch_name or --all
         if not branch_name and not all:
-            typer.echo(
-                "Error: Must specify either a branch name or --all flag", err=True
+            console.print(
+                "[red]Error: Must specify either a branch name or --all flag[/red]"
             )
-            raise typer.Exit(1)
+            raise SystemExit(1)
 
         if branch_name and all:
-            typer.echo(
-                "Error: Cannot specify both branch name and --all flag", err=True
+            console.print(
+                "[red]Error: Cannot specify both branch name and --all flag[/red]"
             )
-            raise typer.Exit(1)
+            raise SystemExit(1)
 
         # Get repo root
         result = subprocess.run(
@@ -399,15 +415,15 @@ def clean(
             console.print("[green bold]🧹 Cleanup complete![/green bold]")
 
     except subprocess.CalledProcessError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+        console.print(f"[red]Error: {e}[/red]")
+        raise SystemExit(1)
     except Exception as e:
-        typer.echo(f"Unexpected error: {e}", err=True)
-        raise typer.Exit(1)
+        console.print(f"[red]Unexpected error: {e}[/red]")
+        raise SystemExit(1)
 
 
-@app.command(name="list")
-def list_sessions():
+@app.command
+def list():
     """List all claude-wt worktrees."""
     try:
         # Get repo root
@@ -471,16 +487,16 @@ def list_sessions():
         console.print(table)
 
     except subprocess.CalledProcessError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+        console.print(f"[red]Error: {e}[/red]")
+        raise SystemExit(1)
     except Exception as e:
-        typer.echo(f"Unexpected error: {e}", err=True)
-        raise typer.Exit(1)
+        console.print(f"[red]Unexpected error: {e}[/red]")
+        raise SystemExit(1)
 
 
-@app.command()
+@app.command
 def init():
-    """Initialize claude-wt for this repository"""
+    """Initialize claude-wt for this repository."""
     try:
         # Get repo root
         result = subprocess.run(
@@ -520,17 +536,17 @@ def init():
         console.print("[green]✅ Added .claude-wt/worktrees to .gitignore[/green]")
 
     except subprocess.CalledProcessError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+        console.print(f"[red]Error: {e}[/red]")
+        raise SystemExit(1)
     except Exception as e:
-        typer.echo(f"Unexpected error: {e}", err=True)
-        raise typer.Exit(1)
+        console.print(f"[red]Unexpected error: {e}[/red]")
+        raise SystemExit(1)
 
 
-@app.command()
+@app.command
 def version():
     """Show version information."""
-    typer.echo("claude-wt 0.1.0")
+    console.print("claude-wt 0.1.0")
 
 
 if __name__ == "__main__":

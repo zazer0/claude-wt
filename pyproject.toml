@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "Utility for running Claude Code in parallel and managing dedicated git worktrees."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["typer>=0.16.0", "rich>=13.0.0"]
+dependencies = ["cyclopts>=3.0.0", "rich>=13.0.0"]
 keywords = ["claude", "git", "ai"]
 authors = [{ name = "Jeremiah Lowin" }]
 classifiers = [

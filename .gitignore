@@ -158,3 +158,6 @@ cython_debug/
 #  project, it is not recommended to check the gitignore file into version control.
 #  https://www.jetbrains.com/help/pycharm/managing-your-project-under-version-control.html
 .idea/
+
+# Claude worktree management
+.claude-wt/worktrees
