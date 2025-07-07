@@ -36,7 +36,8 @@ def check_gitignore(repo_root: Path) -> bool:
 @app.command()
 def new(
     query: Annotated[str, typer.Argument(help="Query to send to Claude")] = "",
-    branch: Annotated[str, typer.Option("--branch", help="Branch name suffix")] = "",
+    branch: Annotated[str, typer.Option("--branch", "-b", help="Source branch to create worktree from")] = "",
+    name: Annotated[str, typer.Option("--name", "-n", help="Name suffix for the worktree branch")] = "",
 ):
     """Create a new worktree and launch Claude."""
     # Get repo root
@@ -59,14 +60,26 @@ This directory must be added to .gitignore to prevent committing worktree data.
         console.print(Panel(panel_content, title="[bold red]⚠️  Setup Required[/bold red]", border_style="red", width=60))
         raise typer.Exit(1)
     
+    # Get source branch (default to current branch)
+    if branch:
+        source_branch = branch
+    else:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "branch", "--show-current"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        source_branch = result.stdout.strip()
+    
     # Sync with origin
     subprocess.run(["git", "-C", str(repo_root), "fetch", "origin"], check=True)
-    subprocess.run(["git", "-C", str(repo_root), "switch", "--quiet", "main"], check=True)
+    subprocess.run(["git", "-C", str(repo_root), "switch", "--quiet", source_branch], check=True)
     subprocess.run(["git", "-C", str(repo_root), "pull", "--ff-only", "--quiet"], check=True)
     
-    # Generate branch name
+    # Generate worktree branch name
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    suffix = branch or timestamp
+    suffix = name or timestamp
     branch_name = f"claude-wt-{suffix}"
     
     # Create branch if needed
@@ -77,7 +90,7 @@ This directory must be added to .gitignore to prevent committing worktree data.
         )
     except subprocess.CalledProcessError:
         subprocess.run(
-            ["git", "-C", str(repo_root), "branch", branch_name, "main"],
+            ["git", "-C", str(repo_root), "branch", branch_name, source_branch],
             check=True
         )
     
@@ -93,11 +106,13 @@ This directory must be added to .gitignore to prevent committing worktree data.
         )
     
     # Print helpful info
-    panel_content = f"""[green]🟢 Resume this session:[/green] [bold]claude-wt resume {suffix}[/bold]
+    panel_content = f"""[dim]Source branch:[/dim] [cyan]{source_branch}[/cyan]
+
+[green]🟢 Resume this session:[/green] [bold]claude-wt resume {suffix}[/bold]
 [blue]🧹 Delete this session:[/blue] [bold]claude-wt clean {suffix}[/bold]
 [red]🧨 Delete all sessions:[/red] [bold]claude-wt clean --all[/bold]"""
     
-    console.print(Panel(panel_content, title="[bold cyan]Session Created[/bold cyan]", border_style="cyan"))
+    console.print(Panel(panel_content, title="[bold cyan]Session Created[/bold cyan]", border_style="cyan", expand=False))
     
     # Launch Claude
     claude_path = shutil.which("claude") or "/Users/jlowin/.claude/local/claude"

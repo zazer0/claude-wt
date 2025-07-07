@@ -40,12 +40,18 @@ Spin up a new isolated Claude session:
 uvx claude-wt new "implement user authentication"
 ```
 
-Behind the scenes: creates a timestamp branch, sets up a worktree in `/tmp/claude/worktrees/`, and launches Claude with your query.
+Behind the scenes: creates a timestamp branch, sets up a worktree in `.claude-wt/worktrees/`, and launches Claude with your query.
 
-Want a memorable branch name? Use `--branch`:
+Want a memorable branch name? Use `--name`:
 
 ```bash
-uvx claude-wt new "fix the parser" --branch parser-fix
+uvx claude-wt new "fix the parser" --name parser-fix
+```
+
+Need to branch from a specific source? Use `--branch`:
+
+```bash
+uvx claude-wt new "hotfix for prod" --branch main --name hotfix-123
 ```
 
 ### 🔄 Pick Up Where You Left Off: `resume`
@@ -87,7 +93,7 @@ uvx claude-wt clean --all  # The Marie Kondo approach
 Think of it like having multiple parallel universes for your code:
 
 1. **Branch Creation** → Each session gets its own branch (`claude-wt-{timestamp}` or your custom name)
-2. **Worktree Setup** → Creates a separate directory in `/tmp/claude/worktrees/` so files don't conflict
+2. **Worktree Setup** → Creates a separate directory in `.claude-wt/worktrees/` so files don't conflict
 3. **Claude Launch** → Starts Claude in the isolated environment with full repo access
 4. **Session Management** → Resume, list, and clean up sessions effortlessly
 
