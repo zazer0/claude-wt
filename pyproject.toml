@@ -31,3 +31,27 @@ vcs = "git"
 style = "pep440"
 bump = true
 fallback-version = "0.0.0"
+
+[dependency-groups]
+dev = ["pre-commit>=4.2.0", "pyright>=1.1.402"]
+
+
+[tool.pyright]
+include = ["claude_wt"]
+exclude = ["**/node_modules", "**/__pycache__", ".venv", ".git", "dist"]
+pythonVersion = "3.10"
+pythonPlatform = "Darwin"
+typeCheckingMode = "basic"
+reportMissingImports = true
+reportMissingTypeStubs = false
+useLibraryCodeForTypes = true
+venvPath = "."
+venv = ".venv"
+
+[tool.ruff.lint]
+extend-select = ["I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "I001", "RUF013"]
+# allow imports not at the top of the file
+"src/fastmcp/__init__.py" = ["E402"]
