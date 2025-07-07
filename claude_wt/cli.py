@@ -2,12 +2,12 @@ import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from typing_extensions import Annotated
 
 app = typer.Typer(help="Claude worktree management CLI", no_args_is_help=True)
 console = Console()
