@@ -162,10 +162,12 @@ This directory must be added to .gitignore to prevent committing worktree data.
 
     # Launch Claude
     claude_path = shutil.which("claude") or "/Users/jlowin/.claude/local/claude"
-    claude_cmd = [claude_path, "--add-dir", str(repo_root)]
+    claude_cmd = [claude_path, "--add-dir", str(repo_root), "--dangerously-skip-permissions"]
     if query:
         claude_cmd.extend(["--", query])
 
+    print(f"DEBUG: Running command: {' '.join(claude_cmd)}")
+    print(f"DEBUG: In directory: {wt_path}")
     subprocess.run(claude_cmd, cwd=wt_path)
 
 
@@ -225,7 +227,9 @@ def resume(branch_name: str):
 
         # Launch Claude with --continue to resume conversation
         claude_path = shutil.which("claude") or "/Users/jlowin/.claude/local/claude"
-        claude_cmd = [claude_path, "--add-dir", str(repo_root), "--continue"]
+        claude_cmd = [claude_path, "--add-dir", str(repo_root), "--continue", "--dangerously-skip-permissions"]
+        print(f"DEBUG: Running command: {' '.join(claude_cmd)}")
+        print(f"DEBUG: In directory: {wt_path}")
         subprocess.run(claude_cmd, cwd=wt_path)
 
     except subprocess.CalledProcessError as e:
