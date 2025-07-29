@@ -39,6 +39,7 @@ def new(
     query: str = "",
     branch: str = "",
     name: str = "",
+    dangerously_skip_permissions: bool = False,
 ):
     """Create a new worktree and launch Claude.
 
@@ -50,6 +51,8 @@ def new(
         Source branch to create worktree from
     name : str
         Name suffix for the worktree branch
+    dangerously_skip_permissions : bool
+        Skip permission checks in Claude (use with caution)
     """
     # Get repo root
     result = subprocess.run(
@@ -162,23 +165,25 @@ This directory must be added to .gitignore to prevent committing worktree data.
 
     # Launch Claude
     claude_path = shutil.which("claude") or "/Users/jlowin/.claude/local/claude"
-    claude_cmd = [claude_path, "--add-dir", str(repo_root), "--dangerously-skip-permissions"]
+    claude_cmd = [claude_path, "--add-dir", str(repo_root)]
+    if dangerously_skip_permissions:
+        claude_cmd.append("--dangerously-skip-permissions")
     if query:
         claude_cmd.extend(["--", query])
 
-    print(f"DEBUG: Running command: {' '.join(claude_cmd)}")
-    print(f"DEBUG: In directory: {wt_path}")
     subprocess.run(claude_cmd, cwd=wt_path)
 
 
 @app.command
-def resume(branch_name: str):
+def resume(branch_name: str, dangerously_skip_permissions: bool = False):
     """Resume an existing worktree session.
 
     Parameters
     ----------
     branch_name : str
         Branch name to resume
+    dangerously_skip_permissions : bool
+        Skip permission checks in Claude (use with caution)
     """
     try:
         # Get repo root
@@ -227,9 +232,9 @@ def resume(branch_name: str):
 
         # Launch Claude with --continue to resume conversation
         claude_path = shutil.which("claude") or "/Users/jlowin/.claude/local/claude"
-        claude_cmd = [claude_path, "--add-dir", str(repo_root), "--continue", "--dangerously-skip-permissions"]
-        print(f"DEBUG: Running command: {' '.join(claude_cmd)}")
-        print(f"DEBUG: In directory: {wt_path}")
+        claude_cmd = [claude_path, "--add-dir", str(repo_root), "--continue"]
+        if dangerously_skip_permissions:
+            claude_cmd.append("--dangerously-skip-permissions")
         subprocess.run(claude_cmd, cwd=wt_path)
 
     except subprocess.CalledProcessError as e:
