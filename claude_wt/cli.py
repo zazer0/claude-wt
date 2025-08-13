@@ -12,6 +12,101 @@ app = App(help="Claude worktree management CLI")
 console = Console()
 
 
+def get_remote_info(repo_root: Path, branch: str | None = None) -> tuple[str | None, bool]:
+    """Get the default remote and check if specified branch has upstream.
+    
+    Args:
+        repo_root: Repository root path
+        branch: Branch to check for upstream (uses current branch if None)
+    
+    Returns:
+        (remote_name, has_upstream): Remote name (or None) and whether branch tracks a remote
+    """
+    # Check if any remotes exist
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "remote"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    
+    if result.returncode != 0 or not result.stdout.strip():
+        return None, False
+    
+    remotes = result.stdout.strip().split('\n')
+    
+    # Prefer 'origin' if it exists, otherwise use first remote
+    remote = 'origin' if 'origin' in remotes else remotes[0]
+    
+    # Check if specified branch (or current branch) has upstream
+    if branch:
+        # Check specific branch's upstream
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "config", f"branch.{branch}.remote"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    else:
+        # Check current branch's upstream
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    
+    has_upstream = result.returncode == 0 and bool(result.stdout.strip())
+    
+    return remote, has_upstream
+
+
+def sync_with_remote(repo_root: Path, source_branch: str) -> None:
+    """Sync with remote if available, but don't fail if not."""
+    # Switch to source branch first
+    subprocess.run(
+        ["git", "-C", str(repo_root), "switch", "--quiet", source_branch], 
+        check=True
+    )
+    
+    # Now check remote info for the source branch
+    remote, has_upstream = get_remote_info(repo_root, source_branch)
+    
+    if not remote:
+        console.print("[yellow]ℹ️  No git remote configured - working with local repository[/yellow]")
+        return
+    
+    # Try to fetch from remote
+    console.print(f"[dim]Syncing with remote '{remote}'...[/dim]")
+    fetch_result = subprocess.run(
+        ["git", "-C", str(repo_root), "fetch", remote],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    
+    if fetch_result.returncode != 0:
+        console.print(f"[yellow]⚠️  Could not fetch from remote '{remote}' - continuing with local state[/yellow]")
+        # Don't show stderr details unless it's not just a network issue
+        if "Could not read from remote" not in fetch_result.stderr:
+            console.print(f"[dim]   ({fetch_result.stderr.strip()})[/dim]")
+        return
+    
+    # Only pull if the branch has an upstream and fetch succeeded
+    if has_upstream:
+        pull_result = subprocess.run(
+            ["git", "-C", str(repo_root), "pull", "--ff-only", "--quiet"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        
+        if pull_result.returncode != 0:
+            console.print("[yellow]⚠️  Could not pull latest changes - continuing with current state[/yellow]")
+            if "diverged" in pull_result.stderr:
+                console.print("[yellow]   Note: Your branch has diverged from the remote[/yellow]")
+
+
 def check_gitignore(repo_root: Path) -> bool:
     """Check if .claude-wt/worktrees is in .gitignore"""
     gitignore_path = repo_root / ".gitignore"
@@ -93,14 +188,8 @@ This directory must be added to .gitignore to prevent committing worktree data.
         )
         source_branch = result.stdout.strip()
 
-    # Sync with origin
-    subprocess.run(["git", "-C", str(repo_root), "fetch", "origin"], check=True)
-    subprocess.run(
-        ["git", "-C", str(repo_root), "switch", "--quiet", source_branch], check=True
-    )
-    subprocess.run(
-        ["git", "-C", str(repo_root), "pull", "--ff-only", "--quiet"], check=True
-    )
+    # Sync with remote if available (but don't fail if not)
+    sync_with_remote(repo_root, source_branch)
 
     # Generate worktree branch name
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
