@@ -72,3 +72,4 @@ The tool performs several git operations:
 - Switches to source branch and pulls latest changes
 - Creates branches only if they don't exist
 - Uses `git worktree` commands for all worktree management
+- ALWAYS use `uv` for running stuff. There's a venv present at cwd/.venv/bin/activate.
