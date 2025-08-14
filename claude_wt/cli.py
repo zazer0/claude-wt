@@ -108,24 +108,65 @@ def sync_with_remote(repo_root: Path, source_branch: str) -> None:
 
 
 def check_gitignore(repo_root: Path) -> bool:
-    """Check if .claude-wt/worktrees is in .gitignore"""
-    gitignore_path = repo_root / ".gitignore"
-    if not gitignore_path.exists():
+    """Check if .claude-wt/worktrees is in .gitignore (local or global)"""
+    patterns_to_check = [
+        ".claude-wt/worktrees",
+        ".claude-wt/worktrees/",
+        ".claude-wt/*",
+        ".claude-wt/**",
+        ".claude-wt",  # Also check for the directory itself
+    ]
+    
+    # Helper function to check if patterns exist in a file
+    def check_patterns_in_file(file_path: Path) -> bool:
+        if not file_path.exists():
+            return False
+        try:
+            content = file_path.read_text()
+            lines = [line.strip() for line in content.split("\n")]
+            for line in lines:
+                # Skip comments and empty lines
+                if line and not line.startswith("#"):
+                    if line in patterns_to_check:
+                        return True
+        except (IOError, OSError):
+            # File might not be readable
+            return False
         return False
-
-    gitignore_content = gitignore_path.read_text()
-    # Check for exact match or pattern that would include it
-    lines = [line.strip() for line in gitignore_content.split("\n")]
-
-    for line in lines:
-        if line in [
-            ".claude-wt/worktrees",
-            ".claude-wt/worktrees/",
-            ".claude-wt/*",
-            ".claude-wt/**",
-        ]:
+    
+    # 1. Check local .gitignore
+    local_gitignore = repo_root / ".gitignore"
+    if check_patterns_in_file(local_gitignore):
+        return True
+    
+    # 2. Check global gitignore
+    # First try to get the configured global excludes file
+    try:
+        result = subprocess.run(
+            ["git", "config", "--global", "core.excludesfile"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            # Expand ~ and environment variables
+            global_gitignore_path = Path(result.stdout.strip()).expanduser()
+            if check_patterns_in_file(global_gitignore_path):
+                return True
+    except (subprocess.SubprocessError, OSError):
+        # git command might not be available or might fail
+        pass
+    
+    # 3. Check default global gitignore locations if no configured path
+    default_locations = [
+        Path.home() / ".gitignore_global",
+        Path.home() / ".config" / "git" / "ignore",
+    ]
+    
+    for location in default_locations:
+        if check_patterns_in_file(location):
             return True
-
+    
     return False
 
 
